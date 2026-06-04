@@ -30,8 +30,8 @@ export default function AdFreePlayer() {
         }
 
         try {
-            //const response = await fetch(`https://adfree-api.onrender.com/api/extract?url=${encodeURIComponent(youtubeLink)}`);
-            const response = await fetch(`http://localhost:3000/api/extract?url=${encodeURIComponent(youtubeLink)}`);
+            const response = await fetch(`https://adfree-api.onrender.com/api/extract?url=${encodeURIComponent(youtubeLink)}`);
+            //const response = await fetch(`http://localhost:3000/api/extract?url=${encodeURIComponent(youtubeLink)}`);
             const data = await response.json();
 
             if (!response.ok) throw new Error(data.error);
