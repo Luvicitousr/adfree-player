@@ -2,10 +2,21 @@ import { useState, useRef, useEffect } from 'react';
 
 export default function AdFreePlayer() {
     // Estados da interface
-    const [youtubeLink, setYoutubeLink] = useState('');
+    // O estado já nasce lendo a URL. Se não tiver nada, nasce vazio ('').
+    const [youtubeLink, setYoutubeLink] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('video') || '';
+    });
+
     const [videoSrc, setVideoSrc] = useState(null);
     const [audioSrc, setAudioSrc] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
+
+    // Se o youtubeLink já nasceu com algo da URL, o loading já começa ativado!
+    const [isLoading, setIsLoading] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return !!params.get('video');
+    });
+
     const [error, setError] = useState('');
     const [resolution, setResolution] = useState('');
 
@@ -15,45 +26,62 @@ export default function AdFreePlayer() {
 
     const isBufferingWait = useRef(false);
 
-    useEffect(() => {
-        // Lê a barra de endereços do navegador
-        const params = new URLSearchParams(window.location.search);
-        const videoParam = params.get('video');
-
-        // Se a extensão enviou um link de vídeo na URL, aperta o botão sozinho!
-        if (videoParam) {
-            setYoutubeLink(videoParam);
-            executarExtracao(videoParam);
-        }
-    }, []);
-
     // A função de extração agora está isolada para ser chamada por humanos ou robôs
     const executarExtracao = async (linkOriginal) => {
-        setError('');
-        setVideoSrc(null);
-        setAudioSrc(null);
-        setIsLoading(true);
-
         if (!linkOriginal.includes('youtube.com') && !linkOriginal.includes('youtu.be')) {
             setError('Por favor, insira um link válido do YouTube.');
             setIsLoading(false);
             return;
         }
 
+
+        const ngrokUrl = 'https://unmucilaged-minimally-margorie.ngrok-free.dev/';
+
+        const response = await fetch(`${ngrokUrl}/api/extract?url=${encodeURIComponent(linkOriginal)}`, {
+            headers: {
+                // O Passe-Livre para atravessar a tela de aviso do Ngrok invisivelmente
+                'ngrok-skip-browser-warning': 'true'
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error);
+
+        return data;
+    };
+
+    useEffect(() => {
+        // Se não tiver link na URL, não faz nada
+        if (!youtubeLink) return;
+
+        // O React permite atualizações de estado DENTRO de blocos async após o "await"
+        const iniciarAutomacao = async () => {
+            try {
+                const data = await executarExtracao(youtubeLink);
+                setVideoSrc(data.videoUrl);
+                setAudioSrc(data.audioUrl);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        iniciarAutomacao();
+    }, []);
+
+    // Acionado se você clicar no botão manualmente
+    const handleExtract = async (e) => {
+        e.preventDefault();
+
+        setError('');
+        setVideoSrc(null);
+        setAudioSrc(null);
+        setIsLoading(true);
+
         try {
-            const ngrokUrl = 'https://unmucilaged-minimally-margorie.ngrok-free.dev/';
-
-            const response = await fetch(`${ngrokUrl}/api/extract?url=${encodeURIComponent(linkOriginal)}`, {
-                headers: {
-                    // O Passe-Livre para atravessar a tela de aviso do Ngrok invisivelmente
-                    'ngrok-skip-browser-warning': 'true'
-                }
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) throw new Error(data.error);
-
+            const data = await executarExtracao(youtubeLink);
             setVideoSrc(data.videoUrl);
             setAudioSrc(data.audioUrl);
         } catch (err) {
@@ -61,12 +89,6 @@ export default function AdFreePlayer() {
         } finally {
             setIsLoading(false);
         }
-    };
-
-    // Acionado se você clicar no botão manualmente
-    const handleExtract = (e) => {
-        e.preventDefault();
-        executarExtracao(youtubeLink);
     };
 
     // --- FUNÇÕES DE SINCRONIZAÇÃO DO PLAYER ---
