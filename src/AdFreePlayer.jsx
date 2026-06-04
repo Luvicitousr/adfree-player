@@ -35,14 +35,10 @@ export default function AdFreePlayer() {
         }
 
 
-        const ngrokUrl = 'https://unmucilaged-minimally-margorie.ngrok-free.dev/';
+        // Conexão direta com a máquina host, latência zero
+        const serverUrl = 'http://localhost:3000';
 
-        const response = await fetch(`${ngrokUrl}/api/extract?url=${encodeURIComponent(linkOriginal)}`, {
-            headers: {
-                // O Passe-Livre para atravessar a tela de aviso do Ngrok invisivelmente
-                'ngrok-skip-browser-warning': 'true'
-            }
-        });
+        const response = await fetch(`${serverUrl}/api/extract?url=${encodeURIComponent(linkOriginal)}`);
 
         const data = await response.json();
 
