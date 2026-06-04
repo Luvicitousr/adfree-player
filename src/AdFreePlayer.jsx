@@ -36,7 +36,7 @@ export default function AdFreePlayer() {
 
 
         // Conexão direta com a máquina host, latência zero
-        const serverUrl = 'http://localhost:3000';
+        const serverUrl = 'https://api.adfree-player.xyz';
 
         const response = await fetch(`${serverUrl}/api/extract?url=${encodeURIComponent(linkOriginal)}`);
 
