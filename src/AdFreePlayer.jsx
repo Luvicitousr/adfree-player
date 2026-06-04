@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function AdFreePlayer() {
     // Estados da interface
@@ -15,22 +15,41 @@ export default function AdFreePlayer() {
 
     const isBufferingWait = useRef(false);
 
-    // Função que simula a comunicação com o back-end
-    const handleExtract = async (e) => {
-        e.preventDefault();
+    useEffect(() => {
+        // Lê a barra de endereços do navegador
+        const params = new URLSearchParams(window.location.search);
+        const videoParam = params.get('video');
+
+        // Se a extensão enviou um link de vídeo na URL, aperta o botão sozinho!
+        if (videoParam) {
+            setYoutubeLink(videoParam);
+            executarExtracao(videoParam);
+        }
+    }, []);
+
+    // A função de extração agora está isolada para ser chamada por humanos ou robôs
+    const executarExtracao = async (linkOriginal) => {
         setError('');
         setVideoSrc(null);
         setAudioSrc(null);
         setIsLoading(true);
 
-        // Validação básica do link
-        if (!youtubeLink.includes('youtube.com') && !youtubeLink.includes('youtu.be')) {
+        if (!linkOriginal.includes('youtube.com') && !linkOriginal.includes('youtu.be')) {
             setError('Por favor, insira um link válido do YouTube.');
+            setIsLoading(false);
             return;
         }
 
         try {
-            const response = await fetch(`https://alan-bell-til-newcastle.trycloudflare.com/api/extract?url=${encodeURIComponent(youtubeLink)}`);
+            const ngrokUrl = 'https://unmucilaged-minimally-margorie.ngrok-free.dev/';
+
+            const response = await fetch(`${ngrokUrl}/api/extract?url=${encodeURIComponent(linkOriginal)}`, {
+                headers: {
+                    // O Passe-Livre para atravessar a tela de aviso do Ngrok invisivelmente
+                    'ngrok-skip-browser-warning': 'true'
+                }
+            });
+
             const data = await response.json();
 
             if (!response.ok) throw new Error(data.error);
@@ -42,6 +61,12 @@ export default function AdFreePlayer() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Acionado se você clicar no botão manualmente
+    const handleExtract = (e) => {
+        e.preventDefault();
+        executarExtracao(youtubeLink);
     };
 
     // --- FUNÇÕES DE SINCRONIZAÇÃO DO PLAYER ---
@@ -197,7 +222,7 @@ export default function AdFreePlayer() {
                                 setResolution(`${e.target.videoWidth}x${e.target.videoHeight}`);
                             }}
                             onTimeUpdate={handleTimeUpdate}
-                            
+
                             // Garante que o áudio acelere se o usuário mudar a velocidade do vídeo
                             onRateChange={(e) => {
                                 if (audioRef.current) {
