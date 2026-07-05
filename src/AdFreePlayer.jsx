@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 
+// Conexão direta com a máquina host, latência zero
+const serverUrl = 'https://api.adfree-player.xyz';
+
 export default function AdFreePlayer() {
     // Estados da interface
     // O estado já nasce lendo a URL. Se não tiver nada, nasce vazio ('').
@@ -34,10 +37,6 @@ export default function AdFreePlayer() {
             return;
         }
 
-
-        // Conexão direta com a máquina host, latência zero
-        const serverUrl = 'https://api.adfree-player.xyz';
-
         const response = await fetch(`${serverUrl}/api/extract?url=${encodeURIComponent(linkOriginal)}`);
 
         const data = await response.json();
@@ -66,6 +65,52 @@ export default function AdFreePlayer() {
 
         iniciarAutomacao();
     }, []);
+
+    const [statusDoDownload, setStatusDoDownload] = useState(''); // '', 'processando', 'pronto', 'erro'
+
+    const verificarProgressoNoServidor = (jobIdRecebido) => {
+        // Cria uma checagem cíclica a cada 3 segundos
+        const checador = setInterval(async () => {
+            try {
+                const response = await fetch(`${serverUrl}/api/download/status?jobId=${jobIdRecebido}`);
+                const data = await response.json();
+
+                if (data.status === 'pronto') {
+                    clearInterval(checador);
+                    setStatusDoDownload('pronto');
+                    // GATILHO MÁGICO: Força o navegador a puxar o arquivo final transmitindo os dados em fluxo contínuo
+                    window.location.href = `${serverUrl}/api/download/file?jobId=${jobIdRecebido}`;
+                } else if (data.status === 'erro') {
+                    clearInterval(checador);
+                    setStatusDoDownload('erro');
+                }
+            } catch {
+                clearInterval(checador);
+                setStatusDoDownload('erro');
+            }
+        }, 3000);
+    };
+
+    const dispararFluxoAssincronoDeDownload = async () => {
+        if (!youtubeLink) return;
+
+        setStatusDoDownload('processando');
+
+        try {
+            // Avisa o servidor para começar a baixar no background do PC
+            const response = await fetch(`${serverUrl}/api/download/start?url=${encodeURIComponent(youtubeLink)}`);
+            const data = await response.json();
+
+            if (data.jobId) {
+                // Passa o ID recebido para a máquina de checagem
+                verificarProgressoNoServidor(data.jobId);
+            } else {
+                setStatusDoDownload('erro');
+            }
+        } catch {
+            setStatusDoDownload('erro');
+        }
+    };
 
     // Acionado se você clicar no botão manualmente
     const handleExtract = async (e) => {
@@ -274,6 +319,36 @@ export default function AdFreePlayer() {
                     </div>
                 )}
             </div>
+
+            {youtubeLink && !isLoading && (
+                <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                    <button
+                        onClick={dispararFluxoAssincronoDeDownload}
+                        disabled={statusDoDownload === 'processando'}
+                        style={{
+                            backgroundColor: statusDoDownload === 'processando' ? '#555' : '#ff0000',
+                            color: 'white',
+                            padding: '12px 24px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            释放fontWeight: 'bold',
+                            display: 'inline-block',
+                            cursor: statusDoDownload === 'processando' ? 'not-allowed' : 'pointer'
+                        }}
+                    >
+                        {statusDoDownload === '' && '传统 1080p+'}
+                        {statusDoDownload === 'processando' && '⏳ Baixando e mesclando no PC... Aguarde.'}
+                        {statusDoDownload === 'pronto' && '✅ Download iniciado!'}
+                        {statusDoDownload === 'erro' && '❌ Falha no processamento. Tentar novamente.'}
+                    </button>
+
+                    {statusDoDownload === 'processando' && (
+                        <p style={{ color: '#aaa', fontSize: '13px', marginTop: '8px' }}>
+                            Nota: Para vídeos longos, este processo pode levar alguns minutos. Não feche a aba.
+                        </p>
+                    )}
+                </div>
+            )}
 
         </div >
     );
